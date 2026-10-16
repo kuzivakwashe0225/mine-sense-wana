@@ -29,7 +29,7 @@ jobs:
       contents: write   # attach the APK to a GitHub Release on v* tags
     env:
       # the server the app talks to; change in repo Settings > Variables when you move to a real domain
-      VITE_API_BASE: ${{ vars.WANA_API_BASE || 'https://wana.161-97-176-218.sslip.io' }}
+      VITE_API_BASE: ${{ vars.WANA_API_BASE || 'https://minesense-wana.meshcloud.co.zw' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

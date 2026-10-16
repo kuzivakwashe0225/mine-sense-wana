@@ -61,7 +61,7 @@ python -m wana serve --port 8000
 
 `mobile/` packages the same web app as an Android app with Capacitor, so the map, target cards, picture checklist,
 offline outbox, GPS and camera all behave as tested in the browser. The app talks to the server in `VITE_API_BASE`
-(set in `frontend/.env.mobile`; default `https://wana.161-97-176-218.sslip.io`). The last answers from the server are
+(set in `frontend/.env.mobile`; default `https://minesense-wana.meshcloud.co.zw`). The last answers from the server are
 kept on the phone, so targets and cards still open with no network, and records wait in the outbox until signal returns.
 
 - **Download:** every push to `main` builds `wana-field.apk` in GitHub Actions (run page → Artifacts). Pushing a tag

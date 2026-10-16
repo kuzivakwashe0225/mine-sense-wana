@@ -1,5 +1,6 @@
 # Append to /etc/caddy/Caddyfile, then: sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
-wana.161-97-176-218.sslip.io {
+# The old sslip.io name stays as an alias so copies of the first APK (v0.1.0) keep working.
+minesense-wana.meshcloud.co.zw, wana.161-97-176-218.sslip.io {
 	encode gzip
 	reverse_proxy 127.0.0.1:8095
 }
