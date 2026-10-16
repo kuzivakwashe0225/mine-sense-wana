@@ -25,14 +25,15 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        navigateFallbackDenylist: [/^\/api\//],
+        // Keycloak pages (sign-in, email links) and the silent sign-in check must always come from the
+        // network: answering them with the cached app shell would show a blank page
+        navigateFallbackDenylist: [/^\/api\//, /^\/auth\//, /^\/silent-check-sso/],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
-          { urlPattern: ({ url }) => url.pathname.startsWith('/api/files/'), handler: 'CacheFirst',
+          // public map images only; the geologist's full-resolution ranking is never stored in a shared cache.
+          // API answers are not cached here: they depend on who is signed in, so query.js keeps them per user.
+          { urlPattern: ({ url }) => url.pathname.startsWith('/api/files/') && !url.pathname.endsWith('/rank.png'), handler: 'CacheFirst',
             options: { cacheName: 'wana-overlays', expiration: { maxEntries: 60 } } },
-          { urlPattern: ({ url, request }) => url.pathname.startsWith('/api/') && request.method === 'GET'
-              && !url.pathname.startsWith('/api/photos/'), handler: 'NetworkFirst',
-            options: { cacheName: 'wana-api', networkTimeoutSeconds: 4, expiration: { maxEntries: 200 } } },
           { urlPattern: ({ url }) => url.hostname === 'tile.openstreetmap.org', handler: 'CacheFirst',
             options: { cacheName: 'osm-tiles', expiration: { maxEntries: 3000, maxAgeSeconds: 60 * 60 * 24 * 60 } } },
         ],
@@ -40,4 +41,5 @@ export default defineConfig(({ mode }) => ({
     }),
   ],
   server: { proxy: { '/api': 'http://127.0.0.1:8000' } },
+  test: { environment: 'jsdom' },
 }))

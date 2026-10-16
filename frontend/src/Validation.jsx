@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react'
-import { api } from './api'
+import { useQuery } from './query'
 
 export default function Validation({ version }) {
-  const [v, setV] = useState(null)
-  useEffect(() => { api.get('/api/validation').then(setV) }, [version])
+  const { data: v, error } = useQuery('/api/validation', { v: version })
+  if (error && !v) return <p className="flag">{error.message}</p>
   if (!v) return <p className="muted">Loading…</p>
   const m = v.metrics
   if (!m.curve) return <p className="muted">No held-out occurrences in this pilot area yet, so the model cannot be tested. Add occurrences south of the hold-out line.</p>
@@ -12,7 +11,7 @@ export default function Validation({ version }) {
   const path = m.curve.map(([a, c], i) => `${i ? 'L' : 'M'}${px(a).toFixed(1)},${py(c).toFixed(1)}`).join(' ')
   const p10 = m.curve[10]
   return (
-    <div>
+    <div data-reading>
       {v.sample_data && <div className="flag">These numbers come from the synthetic SAMPLE dataset. They show the test works; they say nothing about real Shurugwi ground.</div>}
       <div className="kpis">
         <Kpi label="Hold-out AUC" v={m.auc_holdout.toFixed(2)} d="0.50 = random choice of ground" />

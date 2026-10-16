@@ -1,23 +1,17 @@
-import { useEffect, useState } from 'react'
-import { api } from './api'
+import { useQuery } from './query'
 import { T } from './i18n'
 
 export default function Card({ sel, lang, role, version, onPlan }) {
-  const [c, setC] = useState(null)
-  const [err, setErr] = useState('')
   const t = T[lang]
-  useEffect(() => {
-    setErr('')
-    const params = sel.target ? { target: sel.target, lang } : { lon: sel.lon, lat: sel.lat, lang }
-    api.get('/api/card', params).then(setC).catch((e) => { setC(null); setErr(e.message) })
-  }, [sel, lang, role, version])
-
-  if (err) return <div className="panel muted">{err}</div>
+  const params = sel.target ? { target: sel.target, lang, v: version, r: role } : { lon: sel.lon, lat: sel.lat, lang, v: version, r: role }
+  const q = useQuery('/api/card', params)
+  const c = q.data
+  if (q.error && !c) return <div className="panel muted">{q.error.message}</div>
   if (!c) return <div className="panel muted">Loading…</div>
   const mx = Math.max(0.01, ...c.why.map((w) => Math.abs(w.value)), ...c.against.map((w) => Math.abs(w.value)))
   const loc = c.location
   return (
-    <article className="card">
+    <article className="card" data-reading>
       <header className="card-head">
         <div className="id">{c.target ? t.rank(c.target.rank, c.target.of) : t.cell}</div>
         <h2>{c.target ? c.target.id : `${Math.abs(loc.lat).toFixed(3)}°S ${loc.lon.toFixed(3)}°E`}</h2>

@@ -1,0 +1,42 @@
+# Alerts by error kind (see backend/wana/obs.py):
+#   platform -> our fault, act now; business -> a rule refused something (watch trends); user -> input problems (UX signal)
+groups:
+  - name: wana
+    rules:
+      - alert: WanaApiDown
+        expr: up{job="wana-api"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "The Wana API is not answering Prometheus"}
+
+      - alert: WanaPlatformErrors
+        expr: sum(increase(wana_errors_total{kind="platform"}[10m])) > 3
+        labels: {severity: critical}
+        annotations: {summary: "Platform errors on the server: {{ $value }} in 10 minutes"}
+
+      - alert: WanaClientPlatformErrors
+        expr: sum(increase(wana_client_errors_total{kind="platform"}[15m])) > 5
+        labels: {severity: warning}
+        annotations: {summary: "Browsers and phones report platform errors: {{ $value }} in 15 minutes"}
+
+      - alert: WanaDependencyDown
+        expr: wana_dependency_up == 0
+        for: 3m
+        labels: {severity: critical}
+        annotations: {summary: "{{ $labels.dependency }} is not answering the API"}
+
+      - alert: WanaSlowRequests
+        expr: histogram_quantile(0.95, sum by (le) (rate(wana_http_request_duration_seconds_bucket{route!="/api/model/retrain/stream"}[10m]))) > 2
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "95th percentile API latency above 2 s"}
+
+      - alert: WanaSignInFailuresSpike
+        expr: sum(increase(wana_events_total{event="auth",outcome="invalid"}[10m])) > 30
+        labels: {severity: warning}
+        annotations: {summary: "Many invalid sign-in tokens: possible attack or clock problem"}
+
+      - alert: WanaUserErrorsSpike
+        expr: sum(increase(wana_errors_total{kind="user",code!~"unauthenticated|token_expired"}[30m])) > 100
+        labels: {severity: info}
+        annotations: {summary: "Users hit many input errors: check the forms for confusing wording"}

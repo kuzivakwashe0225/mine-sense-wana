@@ -14,7 +14,8 @@ export const T = {
     observer: 'Your name or group', save: 'Save record', sync: 'Send now', needLoc: 'Add a location first.',
     savedOffline: 'Saved on this phone. It will be sent when there is network.', sentOk: 'Sent to the geologist for review.',
     rules: 'Surface samples only. No pits or trenches. Authorised ground only.', outbox: 'Records on this phone',
-    st: { queued: 'waiting to send', sent: 'sent', error: 'send failed, will retry', rejected: 'not accepted' },
+    needSignIn: 'Saved on this phone. Sign in to send it to the geologist.', signInToSend: 'Sign in to send',
+    st: { queued: 'waiting to send', sent: 'sent', error: 'send failed, will retry', rejected: 'not accepted', auth: 'waiting for sign-in' },
   },
   sn: {
     chance: 'Mamaki eWana', conf: 'Kuvimba kwedu', why: 'Sei nzvimbo iyi yakakwira', against: 'Zvinodzikisa mukana',
@@ -29,7 +30,8 @@ export const T = {
     observer: 'Zita renyu kana boka', save: 'Chengetedza', sync: 'Tumira izvozvi', needLoc: 'Isai nzvimbo kutanga.',
     savedOffline: 'Zvachengetwa pafoni. Zvichatumirwa kana network yauya.', sentOk: 'Zvatumirwa kugeologist.',
     rules: 'Samples dzepamusoro chete. Musachera makomba. Pavhu rakabvumidzwa chete.', outbox: 'Zviri pafoni ino',
-    st: { queued: 'zvakamirira kutumirwa', sent: 'zvatumirwa', error: 'hazvina kuenda, zvichaedzwa zvakare', rejected: 'hazvina kugamuchirwa' },
+    needSignIn: 'Zvachengetwa pafoni. Pinda muakaundi kuti zvitumirwe kugeologist.', signInToSend: 'Pinda kuti utumire',
+    st: { queued: 'zvakamirira kutumirwa', sent: 'zvatumirwa', error: 'hazvina kuenda, zvichaedzwa zvakare', rejected: 'hazvina kugamuchirwa', auth: 'zvakamirira kupinda' },
   },
 }
 export const CHECK_KEYS = ['black_grains', 'heavy', 'brown_streak', 'green_host', 'old_pits']

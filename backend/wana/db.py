@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS records (
   used_in_version INTEGER
 );
 """
+# columns added after the first pilot release; ALTER is skipped when they already exist
+MIGRATIONS = ["ALTER TABLE records ADD COLUMN user_sub TEXT", "ALTER TABLE records ADD COLUMN user_email TEXT"]
 
 
 @contextmanager
@@ -32,6 +34,10 @@ def conn():
     c = sqlite3.connect(DB_PATH)
     c.row_factory = sqlite3.Row
     c.executescript(SCHEMA)
+    have = {r[1] for r in c.execute("PRAGMA table_info(records)")}
+    for m in MIGRATIONS:
+        if m.split()[5] not in have:
+            c.execute(m)
     try:
         yield c
         c.commit()
@@ -49,7 +55,7 @@ def row_to_dict(r):
     return d
 
 
-def retrain_from_db(note=""):
+def retrain_from_db(note="", progress=None):
     from .model import _grid_from, latest_version, train
     from .stack import load_stack
     _, meta = load_stack()
@@ -62,7 +68,7 @@ def retrain_from_db(note=""):
         if g.inside(rr, cc)[0]:
             (pres if r["status"] == "endorsed" else absn).append((int(rr[0]), int(cc[0])))
     parent = latest_version()
-    model = train(pres, absn, note=note, parent=parent if parent >= 0 else None)
+    model = train(pres, absn, note=note, parent=parent if parent >= 0 else None, progress=progress)
     with conn() as c:
         c.execute("UPDATE records SET used_in_version=? WHERE status IN ('endorsed','rejected') AND used_in_version IS NULL",
                   (model["version"],))

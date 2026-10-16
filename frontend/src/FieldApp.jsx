@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { api } from './api'
+import { signIn } from './auth'
 import { CHECK_KEYS, T } from './i18n'
-import { listOutbox, nextSampleNo, onOutboxChange, queueRecord, syncOutbox } from './outbox'
+import { clearDraft, listOutbox, loadDraft, nextSampleNo, onOutboxChange, queueRecord, saveDraft, syncOutbox } from './outbox'
+import { useQuery } from './query'
 
 const ICONS = {
   black_grains: <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 32l8-14 9 4 6-10 9 18-6 8H14z" fill="#3a3f42" /><circle cx="18" cy="26" r="2.4" fill="#111" /><circle cx="27" cy="29" r="2.8" fill="#111" /><circle cx="33" cy="25" r="2" fill="#111" /><path d="M17 24.5l1.5-1M26 27.5l1.5-1" stroke="#fff" strokeWidth="1.2" /></svg>,
@@ -34,9 +35,11 @@ function uuid4() {
 
 const empty = () => ({ checks: Object.fromEntries(CHECK_KEYS.map((k) => [k, false])), notes: '', pos: null, photo: null, preview: null })
 
-export default function FieldApp({ lang, initialTarget }) {
+const NONE = []
+
+export default function FieldApp({ lang, initialTarget, user, authEnabled }) {
   const t = T[lang]
-  const [targets, setTargets] = useState([])
+  const targets = useQuery('/api/targets').data || NONE
   const [target, setTarget] = useState(initialTarget || '')
   const [f, setF] = useState(empty)
   const [online, setOnline] = useState(navigator.onLine)
@@ -44,10 +47,27 @@ export default function FieldApp({ lang, initialTarget }) {
   const [locating, setLocating] = useState(false)
   const [manual, setManual] = useState({ lat: '', lon: '' })
   const [outbox, setOutbox] = useState([])
-  const [observer, setObserver] = useState(() => { try { return localStorage.getItem('wana.observer') || '' } catch { return '' } })
+  const [observer, setObserver] = useState(() => { try { return localStorage.getItem('wana.observer') || user?.name || '' } catch { return '' } })
   const [sample, setSample] = useState(nextSampleNo)
 
-  useEffect(() => { api.get('/api/targets').then((x) => { setTargets(x); if (!initialTarget && x[0]) setTarget(x[0].id) }).catch(() => {}) }, [initialTarget])
+  useEffect(() => { if (!target && targets[0]) setTarget(targets[0].id) }, [target, targets])
+  // the form being filled in is saved on the phone as it changes, so nothing typed is lost to a refresh,
+  // a sign-in, an expired session or a flat battery
+  const [draftLoaded, setDraftLoaded] = useState(false)
+  useEffect(() => {
+    loadDraft().then((d) => {
+      if (d) {
+        setF((s) => ({ ...s, checks: d.checks || s.checks, notes: d.notes || '', pos: d.pos || null,
+          photo: d.photo || null, preview: d.photo ? URL.createObjectURL(d.photo) : null }))
+        if (d.manual) setManual(d.manual)
+        if (d.target && !initialTarget) setTarget(d.target)
+      }
+      setDraftLoaded(true)
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (draftLoaded) saveDraft({ checks: f.checks, notes: f.notes, pos: f.pos, photo: f.photo, manual, target })
+  }, [draftLoaded, f.checks, f.notes, f.pos, f.photo, manual, target])
   useEffect(() => { if (initialTarget) setTarget(initialTarget) }, [initialTarget])
   useEffect(() => {
     const refresh = () => listOutbox().then(setOutbox)
@@ -81,6 +101,7 @@ export default function FieldApp({ lang, initialTarget }) {
       created_at: new Date().toISOString(),
     }
     await queueRecord(rec, f.photo)
+    await clearDraft()
     sample.commit()
     setSample(nextSampleNo())
     try { localStorage.setItem('wana.observer', observer) } catch { /* ignore */ }
@@ -88,7 +109,7 @@ export default function FieldApp({ lang, initialTarget }) {
     setF(empty()); setManual({ lat: '', lon: '' })
     if (navigator.onLine) {
       const r = await syncOutbox()
-      setMsg(r.failed ? { text: t.savedOffline, bad: true } : { text: t.sentOk })
+      setMsg(r.waitingAuth ? { text: t.needSignIn, bad: true } : r.failed ? { text: t.savedOffline, bad: true } : { text: t.sentOk })
     } else setMsg({ text: t.savedOffline, bad: true })
   }
 
@@ -149,7 +170,8 @@ export default function FieldApp({ lang, initialTarget }) {
           <div><label className="fl" htmlFor="fnotes">{t.notes}</label><textarea id="fnotes" rows={2} placeholder={t.notesPh} value={f.notes} onChange={(e) => setF((s) => ({ ...s, notes: e.target.value }))} /></div>
           {msg && <div className={`toast ${msg.bad ? 'warn' : ''}`}>{msg.text}</div>}
           <button className="appbtn" onClick={save}>{t.save}</button>
-          {waiting > 0 && <button className="appbtn sec" disabled={!online} onClick={() => syncOutbox()}>{t.sync} ({waiting})</button>}
+          {waiting > 0 && authEnabled && !user.signedIn && <button className="appbtn" onClick={signIn}>{t.signInToSend} ({waiting})</button>}
+          {waiting > 0 && (user.signedIn || !authEnabled) && <button className="appbtn sec" disabled={!online} onClick={() => syncOutbox()}>{t.sync} ({waiting})</button>}
           {outbox.length > 0 && (
             <div>
               <div className="fl">{t.outbox}</div>
@@ -172,6 +194,7 @@ export default function FieldApp({ lang, initialTarget }) {
           <li><b>Photo</b> is shrunk on the phone before sending, to save data.</li>
           <li><b>Sample bag numbers</b> include a code for this phone, so two phones never print the same number.</li>
           <li>Records are <b>saved on the phone first</b> and sent automatically when signal returns. Sending twice is safe.</li>
+          <li>Sending needs a Wana account, so each record has a known author. Records made while signed out or offline wait on the phone until you sign in.</li>
           <li>Nothing changes the map until the geologist endorses it.</li>
         </ol>
       </div>

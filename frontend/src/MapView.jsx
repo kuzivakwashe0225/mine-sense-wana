@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import maplibregl from 'maplibre-gl'
+import * as maplibregl from 'maplibre-gl'
+// MapLibre 6 builds its worker address at run time, so the bundler cannot see it: hand it the bundled file
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { api, getKey, url } from './api'
+import { url } from './api'
+import { currentToken } from './auth'
 import Card from './Card'
+import { useQuery } from './query'
+import { useUi } from './ui'
 
 const BASE_STYLE = {
   version: 8,
@@ -16,30 +21,36 @@ const BASE_STYLE = {
   ],
 }
 
+maplibregl.setWorkerUrl(workerUrl)
+
+const EMPTY = []
+
 export default function MapView({ meta, lang, onPlan }) {
   const el = useRef(null)
   const map = useRef(null)
-  const [overlays, setOverlays] = useState(null)
-  const [targets, setTargets] = useState([])
-  const [occ, setOcc] = useState([])
-  const [show, setShow] = useState('rank')
-  const [layers, setLayers] = useState({ unc: true, tgt: true, occ: true })
-  const [sel, setSel] = useState(null) // {target} | {lon,lat}
-  const [ready, setReady] = useState(false)
   const geo = meta.role === 'geologist'
+  // version in the key: a new model gives new answers; the old ones stay usable offline meanwhile
+  const overlays = useQuery('/api/overlays', { v: meta.version, r: meta.role }).data || null
+  const targets = useQuery('/api/targets', { v: meta.version, r: meta.role }).data || EMPTY
+  const occ = useQuery('/api/occurrences', { v: meta.version }, { enabled: geo }).data || EMPTY
+  // selection, layer and view survive refresh and re-sign-in (see ui.js)
+  const [show, setShow] = useUi('map.show', 'rank')
+  const [layers, setLayersRaw] = useUi('map.layers', { unc: true, tgt: true, occ: true })
+  const setLayers = (fn) => setLayersRaw((cur) => fn(cur))
+  const [sel, setSel] = useUi('map.sel', null) // {target} | {lon,lat}
+  const [view, setView] = useUi('map.view', null)
+  const [ready, setReady] = useState(false)
 
-  useEffect(() => {
-    api.get('/api/overlays').then(setOverlays)
-    api.get('/api/targets').then((t) => { setTargets(t); if (t[0]) setSel({ target: t[0].id }) })
-    if (geo) api.get('/api/occurrences').then(setOcc).catch(() => setOcc([]))
-  }, [meta.version, meta.role, geo])
+  useEffect(() => { if (!sel && targets[0]) setSel({ target: targets[0].id }) }, [sel, targets, setSel])
 
   useEffect(() => {
     const [w, s, e, n] = meta.bbox
-    const m = new maplibregl.Map({ container: el.current, style: BASE_STYLE, bounds: [[w, s], [e, n]],
-      fitBoundsOptions: { padding: 20 }, attributionControl: { compact: true },
-      // overlays behind the geologist key need the Authorization header too
-      transformRequest: (url) => (url.includes('/api/') && getKey() ? { url, headers: { Authorization: `Bearer ${getKey()}` } } : { url }) })
+    const m = new maplibregl.Map({ container: el.current, style: BASE_STYLE,
+      ...(view ? { center: view.center, zoom: view.zoom } : { bounds: [[w, s], [e, n]], fitBoundsOptions: { padding: 20 } }),
+      attributionControl: { compact: true },
+      // the full-resolution ranking is for geologists: send the sign-in token with our own image requests
+      transformRequest: (u) => (u.includes('/api/') && currentToken() ? { url: u, headers: { Authorization: `Bearer ${currentToken()}` } } : { url: u }) })
+    m.on('moveend', () => { const c = m.getCenter(); setView({ center: [c.lng, c.lat], zoom: m.getZoom() }) })
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
     m.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left')
     // 'load' waits for basemap tiles, which never arrive offline; the style is enough to draw our layers
@@ -51,7 +62,7 @@ export default function MapView({ meta, lang, onPlan }) {
     })
     map.current = m
     return () => m.remove()
-  }, [meta.bbox, meta.role])
+  }, [meta.bbox, meta.role]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // raster overlays
   useEffect(() => {
@@ -110,7 +121,7 @@ export default function MapView({ meta, lang, onPlan }) {
       d.onclick = (e) => { e.stopPropagation(); setSel({ target: t.id }) }
       return new maplibregl.Marker({ element: d }).setLngLat([t.lon, t.lat]).addTo(m)
     }) : []
-  }, [ready, targets, occ, sel, layers.tgt, layers.occ])
+  }, [ready, targets, occ, sel, setSel, layers.tgt, layers.occ])
 
   const evOptions = overlays?.evidence ? Object.entries(overlays.evidence) : []
   return (

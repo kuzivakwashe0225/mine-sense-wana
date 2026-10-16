@@ -1,7 +1,7 @@
 export default function Sources({ meta }) {
   const coef = Object.fromEntries(meta.features.map((f, i) => [f, meta.coef_mean[i]]))
   return (
-    <div>
+    <div data-reading>
       <h2>Evidence layers in model v{meta.version}</h2>
       <p className="muted">Every layer carries its source and whether it is real or sample data. Weight is the model's average coefficient on the standardised layer: larger means more influence on the ranking.</p>
       <div className="tablewrap"><table>

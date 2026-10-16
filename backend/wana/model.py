@@ -47,8 +47,11 @@ def split_occurrences(occ, cfg):
     return [o for o in occ if o["id"] not in ids], test
 
 
-def train(field_presences=(), field_absences=(), note="", parent=None) -> dict:
-    """field_presences / field_absences: iterables of (row, col)."""
+def train(field_presences=(), field_absences=(), note="", parent=None, progress=None) -> dict:
+    """field_presences / field_absences: iterables of (row, col).
+    progress(stage, fraction) is called as work advances, for the streaming retrain view."""
+    step = progress or (lambda *_: None)
+    step("Loading the evidence stack", 0.02)
     cfg = load_config()
     ensure_dirs()
     z, meta = load_stack()
@@ -73,7 +76,8 @@ def train(field_presences=(), field_absences=(), note="", parent=None) -> dict:
 
     rng = np.random.default_rng(cfg.seed + (parent or 0))
     coefs, inter = [], []
-    for _ in range(cfg.n_models):
+    for k in range(cfg.n_models):
+        step(f"Training model {k + 1} of {cfg.n_models}", 0.08 + 0.6 * k / cfg.n_models)
         P = rng.choice(pres, size=len(pres), replace=True)
         B = rng.integers(0, N, size=cfg.n_background)
         idx = np.concatenate([P, B, np.array(absn, dtype=int)])
@@ -86,6 +90,7 @@ def train(field_presences=(), field_absences=(), note="", parent=None) -> dict:
         inter.append(m.intercept_[0])
     coefs, inter = np.array(coefs), np.array(inter)
 
+    step("Ranking every cell and measuring uncertainty", 0.7)
     logits = Z @ coefs.T + inter                      # (N, M)
     mean, spread = logits.mean(1), logits.std(1)
     order = np.argsort(-mean)
@@ -100,6 +105,7 @@ def train(field_presences=(), field_absences=(), note="", parent=None) -> dict:
     conf = np.where(unc >= q2, 0, np.where(unc >= q1, 1, 2)).astype("uint8")  # 0 Low, 1 Medium, 2 High
 
     # validation on the spatial hold-out
+    step("Testing on held-out occurrences", 0.8)
     metrics = {"n_train": len(pres), "n_test": len(test_occ), "n_absences": len(absn)}
     if test_occ:
         ti = np.array([o["row"] * W + o["col"] for o in test_occ])
@@ -126,6 +132,7 @@ def train(field_presences=(), field_absences=(), note="", parent=None) -> dict:
             blocks.add((by[r], bx[c]))
             if len(chosen) >= cfg.target_count:
                 break
+    step("Picking targets", 0.85)
     v = latest_version() + 1
     prev = _prev_targets(v - 1)
     used, next_id = set(), max([int(t["id"].split("T")[-1]) for t in prev] + [0])
@@ -142,6 +149,7 @@ def train(field_presences=(), field_absences=(), note="", parent=None) -> dict:
             tid = f"SHU-T{next_id:02d}"
         targets.append({"id": tid, "rank": k, "row": r, "col": c, "lon": float(lon), "lat": float(lat)})
 
+    step("Drawing map layers", 0.9)
     out = run_dir(v)
     out.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(out / "grids.npz", score=score.reshape(H, W), wscore=wscore.reshape(H, W),
@@ -165,6 +173,7 @@ def train(field_presences=(), field_absences=(), note="", parent=None) -> dict:
         "any_sample": meta["any_sample"], "test_ids": [o["id"] for o in test_occ],
     }
     (out / "model.json").write_text(json.dumps(model, indent=2))
+    step("Saved", 1.0)
     return model
 
 

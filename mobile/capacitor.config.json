@@ -2,6 +2,13 @@
   "appId": "zw.ac.hit.minesense.wana",
   "appName": "Wana",
   "webDir": "www",
-  "android": { "allowMixedContent": false },
-  "server": { "androidScheme": "https" }
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": [
+      "minesense-wana.meshcloud.co.zw"
+    ]
+  }
 }
