@@ -1,0 +1,12 @@
+{
+  "name": "Shurugwi pilot",
+  "bbox": [29.93, -19.75, 30.13, -19.60],
+  "crs": "EPSG:32736",
+  "resolution": 30,
+  "s2_months": [6, 9],
+  "s2_years": [2023, 2025],
+  "holdout_rule": {"type": "lat_below", "value": -19.70},
+  "target_count": 12,
+  "target_min_spacing_m": 900,
+  "miner_grid_m": 1000
+}

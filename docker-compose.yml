@@ -1,0 +1,19 @@
+# Production-style deployment with automatic HTTPS (needed for phone GPS and offline install).
+# Set WANA_DOMAIN to a domain pointing at the server and WANA_GEOLOGIST_KEY to a long random string.
+services:
+  wana:
+    build: .
+    environment:
+      WANA_GEOLOGIST_KEY: ${WANA_GEOLOGIST_KEY:?set WANA_GEOLOGIST_KEY}
+      WANA_CORS: https://${WANA_DOMAIN},https://localhost
+    volumes: [wana-data:/data]
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    command: caddy reverse-proxy --from ${WANA_DOMAIN:?set WANA_DOMAIN} --to wana:8000
+    ports: ["80:80", "443:443"]
+    volumes: [caddy-data:/data]
+    restart: unless-stopped
+volumes:
+  wana-data:
+  caddy-data:

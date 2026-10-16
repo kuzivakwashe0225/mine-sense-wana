@@ -1,0 +1,7 @@
+{
+  "appId": "zw.ac.hit.minesense.wana",
+  "appName": "Wana",
+  "webDir": "www",
+  "android": { "allowMixedContent": false },
+  "server": { "androidScheme": "https" }
+}

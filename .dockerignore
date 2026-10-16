@@ -1,0 +1,8 @@
+**/node_modules
+.venv
+data
+mobile
+e2e-out
+*.tgz
+frontend/dist
+.git

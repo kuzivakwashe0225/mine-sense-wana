@@ -1,0 +1,5 @@
+# Append to /etc/caddy/Caddyfile, then: sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+wana.161-97-176-218.sslip.io {
+	encode gzip
+	reverse_proxy 127.0.0.1:8095
+}
